@@ -28,7 +28,7 @@ cv.onRuntimeInitialized = () => {
 };
 
 // -----------------------------
-// UI EVENTS
+// UI EVENTS (WhisperFrames pattern)
 // -----------------------------
 masterBtn.onclick = () => masterInput.click();
 productBtn.onclick = () => productInput.click();
@@ -49,50 +49,24 @@ function handleImage(e, isMaster) {
     preview.classList.remove("hidden");
 
     const src = cv.imread(preview);
-
     try {
-      const result = measurePerimeter(src);
+      const perimeter = measurePerimeter(src);
 
-      // DRAW OVERLAYS
       if (isMaster) {
-        drawOverlay(
-          src,
-          result.coin,
-          result.object,
-          result.circle,
-          new cv.Scalar(255, 0, 0, 255),   // coin RED
-          new cv.Scalar(0, 255, 0, 255)    // object GREEN
-        );
-
-        masterPerimeter = result.periMM;
+        masterPerimeter = perimeter;
         productBtn.disabled = false;
         statusText.textContent =
-          `✅ MASTER stored: ${result.periMM.toFixed(2)} mm`;
-
+          ✅ MASTER stored: ${perimeter.toFixed(2)} mm;
       } else {
-        drawOverlay(
-          src,
-          result.coin,
-          result.object,
-          result.circle,
-          new cv.Scalar(255, 165, 0, 255), // coin ORANGE
-          new cv.Scalar(0, 150, 255, 255)  // object BLUE
-        );
-
-        const match = computeMatch(result.periMM, masterPerimeter);
+        const match = computeMatch(perimeter, masterPerimeter);
         const verdict =
           match >= PASS_THRESHOLD ? "PASS ✅" : "FAIL ❌";
         statusText.textContent =
-          `${verdict} — ${match.toFixed(2)}% match`;
+          ${verdict} — ${match.toFixed(2)}% match;
       }
-
-      cv.imshow(preview, src);
-
-    } catch (err) {
-      console.error(err);
+    } catch {
       statusText.textContent = "❌ Detection failed. Retake photo.";
     }
-
     src.delete();
   };
 
@@ -100,34 +74,7 @@ function handleImage(e, isMaster) {
 }
 
 // -----------------------------
-// DRAWING (VISUAL ONLY)
-// -----------------------------
-function drawOverlay(src, coinContour, objectContour, coinCircle, coinColor, objColor) {
-  // clone the source to make contours visible
-  let overlay = src.clone();
-
-  // draw object contour (thicker and bright)
-  let v = new cv.MatVector();
-  v.push_back(objectContour);
-  cv.drawContours(overlay, v, -1, objColor, 4);  // thicker line
-  v.delete();
-
-  // draw coin circle
-  cv.circle(overlay,
-    new cv.Point(coinCircle.center.x, coinCircle.center.y),
-    Math.round(coinCircle.radius),
-    coinColor,
-    4  // thicker line
-  );
-
-  // blend overlay on top of original image (50% opacity)
-  cv.addWeighted(overlay, 0.7, src, 0.3, 0, src);
-  overlay.delete();
-};
-}
-
-// -----------------------------
-// CORE LOGIC (UNCHANGED)
+// CORE LOGIC (FROM PYTHON)
 // -----------------------------
 function circularity(c) {
   const area = cv.contourArea(c);
@@ -183,21 +130,13 @@ function measurePerimeter(src) {
   let periPx = cv.arcLength(object, true);
   let periMM = periPx / pxPerMM;
 
-  gray.delete();
-  binary.delete();
-  contours.delete();
-  hierarchy.delete();
-
-  return {
-    periMM,
-    coin,
-    object,
-    circle
-  };
+  gray.delete(); binary.delete(); contours.delete(); hierarchy.delete();
+  return periMM;
 }
 
 function computeMatch(product, master) {
   const diff = Math.abs(product - master);
   return Math.max(0, 100 - (diff / master) * 100);
 }
+
 
