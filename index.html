@@ -2,45 +2,88 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Dimensional Inspection</title>
-
-  <!-- OpenCV -->
-  <script src="https://docs.opencv.org/4.x/opencv.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css">
+  <!-- OpenCV -->
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .app {
+      max-width: 420px;
+      width: 100%;
+    }
+    h1 {
+      text-align: center;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      background: #2563eb;
+      color: white;
+    }
+    button:disabled {
+      background: #475569;
+    }
+    .card {
+      background: #020617;
+      padding: 15px;
+      border-radius: 14px;
+      margin-top: 15px;
+    }
+    img {
+      width: 100%;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+    .status {
+      margin-top: 10px;
+      font-weight: 600;
+      text-align: center;
+    }
+    input[type="file"] {
+      display: none;
+    }
+  </style>
 </head>
 <body>
 
-<div class="card">
-  <h2>Dimensional Inspection</h2>
-  <p class="subtitle">Coin-referenced perimeter measurement</p>
+<div class="app">
+  <h1>Dimensional Inspection</h1>
 
-  <img id="preview" class="hidden"/>
+  <button id="masterBtn">Capture MASTER</button>
+  <input id="masterInput" type="file" accept="image/*" capture="environment">
 
-  <div class="slider-group">
-    <label>
-      Tolerance: <span id="tolValue">5</span>%
-    </label>
-    <input type="range" id="tolerance" min="0" max="10" value="5">
+  <button id="productBtn" disabled>Capture PRODUCT</button>
+  <input id="productInput" type="file" accept="image/*" capture="environment">
+
+  <div class="card">
+    <img id="preview" />
+    <div class="status" id="status">Waiting…</div>
   </div>
-
-  <div class="buttons">
-    <input type="file" accept="image/*" capture="environment"
-           id="masterInput" class="hidden">
-    <input type="file" accept="image/*" capture="environment"
-           id="productInput" class="hidden">
-
-    <button id="masterBtn">Capture MASTER</button>
-    <button id="productBtn" disabled>Capture PRODUCT</button>
-  </div>
-
-  <p id="status" class="status">Ready. Capture MASTER sample.</p>
 </div>
 
 <script src="script.js"></script>
 </body>
 </html>
+
