@@ -1,150 +1,125 @@
+let video = document.getElementById("video");
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
+
 let masterPerimeter = null;
-let tolerancePercent = 5;
+let tolerance = 5;
 
-function setTolerance(val) {
-  tolerancePercent = parseFloat(val);
-  document.getElementById("tolVal").innerText = val + "%";
+const COIN_DIAMETER_MM = 24.0;
+
+function onOpenCvReady() {
+  document.getElementById("status").innerText = "OpenCV Ready";
+  startCamera();
+
+  document.getElementById("captureMaster").disabled = false;
+  document.getElementById("captureProduct").disabled = false;
 }
 
-function preprocess(src) {
-  let gray = new cv.Mat();
-  cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-
-  // Normalize lighting
-  cv.equalizeHist(gray, gray);
-
-  // Blur to reduce noise
-  cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
-
-  return gray;
+async function startCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" }
+  });
+  video.srcObject = stream;
 }
 
-function findContoursRobust(src) {
-  let gray = preprocess(src);
+document.getElementById("tolerance").oninput = e => {
+  tolerance = Number(e.target.value);
+  document.getElementById("tolVal").innerText = tolerance;
+};
 
-  let thresh = new cv.Mat();
-  cv.adaptiveThreshold(
-    gray,
-    thresh,
-    255,
-    cv.ADAPTIVE_THRESH_GAUSSIAN_C,
-    cv.THRESH_BINARY_INV,
-    11,
-    2
-  );
+document.getElementById("captureMaster").onclick = () => {
+  masterPerimeter = captureAndMeasure(true);
+};
 
-  // Morph close to seal edges
-  let kernel = cv.Mat.ones(5, 5, cv.CV_8U);
-  cv.morphologyEx(thresh, thresh, cv.MORPH_CLOSE, kernel);
-
-  let contours = new cv.MatVector();
-  let hierarchy = new cv.Mat();
-  cv.findContours(
-    thresh,
-    contours,
-    hierarchy,
-    cv.RETR_EXTERNAL,
-    cv.CHAIN_APPROX_SIMPLE
-  );
-
-  gray.delete();
-  thresh.delete();
-  hierarchy.delete();
-  kernel.delete();
-
-  return contours;
-}
-
-function detectCoinAndObject(src, draw = false) {
-  let contours = findContoursRobust(src);
-
-  if (contours.size() === 0) {
-    throw "No contours detected";
-  }
-
-  let bestCoin = null;
-  let bestCoinScore = 0;
-  let objectContour = null;
-
-  for (let i = 0; i < contours.size(); i++) {
-    let cnt = contours.get(i);
-    let area = cv.contourArea(cnt);
-
-    if (area < 1000) continue;
-
-    let perimeter = cv.arcLength(cnt, true);
-    let circularity = 4 * Math.PI * area / (perimeter * perimeter);
-
-    // Browser-safe circularity range
-    if (circularity > 0.65 && area > bestCoinScore) {
-      bestCoin = cnt;
-      bestCoinScore = area;
-    }
-  }
-
-  if (!bestCoin) {
-    throw "Coin not detected";
-  }
-
-  // Largest contour other than coin = object
-  let maxArea = 0;
-  for (let i = 0; i < contours.size(); i++) {
-    let cnt = contours.get(i);
-    if (cnt === bestCoin) continue;
-    let area = cv.contourArea(cnt);
-    if (area > maxArea) {
-      maxArea = area;
-      objectContour = cnt;
-    }
-  }
-
-  if (!objectContour) {
-    throw "Object not detected";
-  }
-
-  if (draw) {
-    let display = src.clone();
-    cv.drawContours(display, new cv.MatVector([bestCoin]), -1, [0, 255, 0, 255], 3);
-    cv.drawContours(display, new cv.MatVector([objectContour]), -1, [255, 0, 0, 255], 3);
-    cv.imshow("outputCanvas", display);
-    display.delete();
-  }
-
-  let coinPerimeter = cv.arcLength(bestCoin, true);
-  let objPerimeter = cv.arcLength(objectContour, true);
-
-  contours.delete();
-
-  return { coinPerimeter, objPerimeter };
-}
-
-function captureMaster(src) {
-  try {
-    let res = detectCoinAndObject(src, true);
-    masterPerimeter = res.objPerimeter;
-    alert("Master captured successfully");
-  } catch (e) {
-    alert(e + ". Retake with coin fully visible.");
-  }
-}
-
-function inspectSample(src) {
+document.getElementById("captureProduct").onclick = () => {
   if (!masterPerimeter) {
     alert("Capture master first");
     return;
   }
+  captureAndMeasure(false);
+};
 
-  try {
-    let res = detectCoinAndObject(src, true);
-    let diff = Math.abs(res.objPerimeter - masterPerimeter);
-    let percent = (diff / masterPerimeter) * 100;
+function captureAndMeasure(isMaster) {
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
 
-    if (percent <= tolerancePercent) {
-      alert("PASS (" + percent.toFixed(2) + "%)");
-    } else {
-      alert("FAIL (" + percent.toFixed(2) + "%)");
+  let src = cv.imread(canvas);
+  let gray = new cv.Mat();
+  let binary = new cv.Mat();
+
+  cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+  cv.GaussianBlur(gray, gray, new cv.Size(5,5), 0);
+  cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+
+  let contours = new cv.MatVector();
+  let hierarchy = new cv.Mat();
+  cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE);
+
+  if (contours.size() < 2) {
+    document.getElementById("result").innerText = "Detection failed – ensure coin & object visible";
+    return null;
+  }
+
+  let bestCoin = null;
+  let bestScore = 999;
+
+  for (let i = 0; i < contours.size(); i++) {
+    let c = contours.get(i);
+    let area = cv.contourArea(c);
+    if (area < 500) continue;
+
+    let peri = cv.arcLength(c, true);
+    let circ = (4 * Math.PI * area) / (peri * peri);
+    let score = Math.abs(circ - 1);
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestCoin = c;
     }
-  } catch (e) {
-    alert(e + ". Ensure coin and object are visible.");
+  }
+
+  if (!bestCoin) {
+    document.getElementById("result").innerText = "Coin not detected";
+    return null;
+  }
+
+  let circle = cv.minEnclosingCircle(bestCoin);
+  let pixelsPerMM = (2 * circle.radius) / COIN_DIAMETER_MM;
+
+  let objectContour = null;
+  let maxArea = 0;
+
+  for (let i = 0; i < contours.size(); i++) {
+    let c = contours.get(i);
+    let area = cv.contourArea(c);
+    if (area > maxArea && c !== bestCoin) {
+      maxArea = area;
+      objectContour = c;
+    }
+  }
+
+  let perimeterPX = cv.arcLength(objectContour, true);
+  let perimeterMM = perimeterPX / pixelsPerMM;
+
+  cv.drawContours(src, contours, -1, new cv.Scalar(0,255,0,255), 2);
+  cv.imshow(canvas, src);
+
+  src.delete(); gray.delete(); binary.delete(); contours.delete(); hierarchy.delete();
+
+  if (isMaster) {
+    document.getElementById("result").innerText =
+      `Master stored: ${perimeterMM.toFixed(2)} mm`;
+    return perimeterMM;
+  } else {
+    let diff = Math.abs(perimeterMM - masterPerimeter);
+    let match = 100 - (diff / masterPerimeter) * 100;
+    let pass = match >= (100 - tolerance);
+
+    document.getElementById("result").innerText =
+      `${pass ? "PASS" : "FAIL"} — ${match.toFixed(2)}%`;
+
+    return perimeterMM;
   }
 }
+
