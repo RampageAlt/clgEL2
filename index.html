@@ -1,32 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Dimensional Inspection</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- OpenCV -->
-  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+  <script src="https://docs.opencv.org/4.x/opencv.js"></script>
 
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <h2>📐 Dimensional Inspection</h2>
-<p class="hint">Place coin + object fully inside frame</p>
+<p class="hint">Place coin + object clearly in frame</p>
 
-<video id="video" autoplay playsinline></video>
-<canvas id="canvas"></canvas>
+<img id="preview" class="hidden"/>
 
 <div class="buttons">
+  <input type="file" accept="image/*" capture="environment"
+         id="masterInput" class="hidden">
+  <input type="file" accept="image/*" capture="environment"
+         id="productInput" class="hidden">
+
   <button id="masterBtn">📸 Capture MASTER</button>
   <button id="productBtn" disabled>📸 Capture PRODUCT</button>
 </div>
 
-<p id="status">Initializing camera…</p>
+<p id="status">Loading OpenCV…</p>
 
 <script src="script.js"></script>
 </body>
 </html>
+
+
 
 
