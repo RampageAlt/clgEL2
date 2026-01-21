@@ -1,24 +1,37 @@
 body {
-  font-family: system-ui, sans-serif;
-  background: #111;
-  color: #eee;
-  text-align: center;
-  padding: 15px;
   margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+}
+
+.card {
+  background: #111;
+  color: #eaeaea;
+  padding: 20px;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 420px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  text-align: center;
 }
 
 h2 {
-  margin-bottom: 4px;
+  margin: 0;
+  font-weight: 600;
 }
 
-.hint {
-  font-size: 14px;
-  opacity: 0.8;
+.subtitle {
+  font-size: 13px;
+  opacity: 0.7;
+  margin-bottom: 12px;
 }
 
 img {
   width: 100%;
-  max-width: 480px;
   margin-top: 10px;
   border-radius: 12px;
 }
@@ -27,34 +40,49 @@ img {
   display: none;
 }
 
+.slider-group {
+  margin: 15px 0;
+  text-align: left;
+}
+
+.slider-group label {
+  font-size: 13px;
+  display: block;
+  margin-bottom: 6px;
+}
+
+input[type="range"] {
+  width: 100%;
+}
+
 .buttons {
-  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 button {
-  padding: 14px 20px;
-  font-size: 16px;
-  margin: 6px;
+  flex: 1;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
   border-radius: 10px;
   border: none;
   cursor: pointer;
-}
-
-#masterBtn {
   background: #1e88e5;
   color: white;
 }
 
 #productBtn {
   background: #2e7d32;
-  color: white;
 }
 
 button:disabled {
   background: #555;
+  cursor: not-allowed;
 }
 
-#status {
-  margin-top: 10px;
-  font-weight: bold;
+.status {
+  margin-top: 12px;
+  font-size: 14px;
 }
