@@ -5,83 +5,104 @@ const COIN_DIAMETER_MM = 24.0;
 const MIN_CONTOUR_AREA = 500;
 const PASS_THRESHOLD = 95.0;
 
+// -----------------------------
+// STATE
+// -----------------------------
 let masterPerimeter = null;
-let cvReady = false;
 
 // -----------------------------
 // ELEMENTS
 // -----------------------------
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-const statusText = document.getElementById("status");
 const masterBtn = document.getElementById("masterBtn");
 const productBtn = document.getElementById("productBtn");
+const masterInput = document.getElementById("masterInput");
+const productInput = document.getElementById("productInput");
+const preview = document.getElementById("preview");
+const statusText = document.getElementById("status");
 
 // -----------------------------
-// CAMERA
+// OPENCV READY
 // -----------------------------
-navigator.mediaDevices.getUserMedia({
-  video: { facingMode: "environment" },
-  audio: false
-})
-.then(stream => {
-  video.srcObject = stream;
-  statusText.textContent = "Camera ready. Capture MASTER sample.";
-})
-.catch(() => {
-  statusText.textContent = "❌ Camera access denied";
-});
+cv.onRuntimeInitialized = () => {
+  statusText.textContent = "Ready. Capture MASTER sample.";
+};
 
 // -----------------------------
-// OPENCV READY CHECK
+// UI EVENTS (WhisperFrames pattern)
 // -----------------------------
-let checkCV = setInterval(() => {
-  if (cv && cv.Mat) {
-    cvReady = true;
-    clearInterval(checkCV);
-  }
-}, 100);
+masterBtn.onclick = () => masterInput.click();
+productBtn.onclick = () => productInput.click();
+
+masterInput.onchange = e => handleImage(e, true);
+productInput.onchange = e => handleImage(e, false);
 
 // -----------------------------
-// UTIL FUNCTIONS
+// IMAGE HANDLING
 // -----------------------------
-function freezeFrame() {
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  ctx.drawImage(video, 0, 0);
-  canvas.style.display = "block";
-  video.style.display = "none";
-  return cv.imread(canvas);
+function handleImage(e, isMaster) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const img = new Image();
+  img.onload = () => {
+    preview.src = img.src;
+    preview.classList.remove("hidden");
+
+    const src = cv.imread(preview);
+    try {
+      const perimeter = measurePerimeter(src);
+
+      if (isMaster) {
+        masterPerimeter = perimeter;
+        productBtn.disabled = false;
+        statusText.textContent =
+          `✅ MASTER stored: ${perimeter.toFixed(2)} mm`;
+      } else {
+        const match = computeMatch(perimeter, masterPerimeter);
+        const verdict =
+          match >= PASS_THRESHOLD ? "PASS ✅" : "FAIL ❌";
+        statusText.textContent =
+          `${verdict} — ${match.toFixed(2)}% match`;
+      }
+    } catch {
+      statusText.textContent = "❌ Detection failed. Retake photo.";
+    }
+    src.delete();
+  };
+
+  img.src = URL.createObjectURL(file);
 }
 
-function circularity(contour) {
-  const area = cv.contourArea(contour);
-  const peri = cv.arcLength(contour, true);
+// -----------------------------
+// CORE LOGIC (FROM PYTHON)
+// -----------------------------
+function circularity(c) {
+  const area = cv.contourArea(c);
+  const peri = cv.arcLength(c, true);
   return peri === 0 ? 0 : 4 * Math.PI * area / (peri * peri);
 }
 
-// -----------------------------
-// MEASUREMENT CORE
-// -----------------------------
 function measurePerimeter(src) {
   let gray = new cv.Mat();
   let binary = new cv.Mat();
 
   cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-  cv.threshold(gray, binary, 0, 255,
-    cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+  cv.threshold(
+    gray, binary, 0, 255,
+    cv.THRESH_BINARY_INV + cv.THRESH_OTSU
+  );
 
   let kernel = cv.getStructuringElement(
-    cv.MORPH_RECT,
-    new cv.Size(5, 5)
+    cv.MORPH_RECT, new cv.Size(5, 5)
   );
   cv.morphologyEx(binary, binary, cv.MORPH_CLOSE, kernel);
 
   let contours = new cv.MatVector();
   let hierarchy = new cv.Mat();
-  cv.findContours(binary, contours, hierarchy,
-    cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE);
+  cv.findContours(
+    binary, contours, hierarchy,
+    cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
+  );
 
   let valid = [];
   for (let i = 0; i < contours.size(); i++) {
@@ -100,53 +121,21 @@ function measurePerimeter(src) {
     .sort((a, b) => a.score - b.score || b.area - a.area)[0].c;
 
   let circle = cv.minEnclosingCircle(coin);
-  let pixelsPerMM = (2 * circle.radius) / COIN_DIAMETER_MM;
+  let pxPerMM = (2 * circle.radius) / COIN_DIAMETER_MM;
 
   let object = valid
     .filter(c => c !== coin)
     .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))[0];
 
-  let perimeterPx = cv.arcLength(object, true);
-  let perimeterMM = perimeterPx / pixelsPerMM;
+  let periPx = cv.arcLength(object, true);
+  let periMM = periPx / pxPerMM;
 
   gray.delete(); binary.delete(); contours.delete(); hierarchy.delete();
-  return perimeterMM;
+  return periMM;
 }
 
-// -----------------------------
-// BUTTON HANDLERS
-// -----------------------------
-masterBtn.onclick = () => {
-  if (!cvReady) {
-    statusText.textContent = "Loading OpenCV… wait";
-    return;
-  }
+function computeMatch(product, master) {
+  const diff = Math.abs(product - master);
+  return Math.max(0, 100 - (diff / master) * 100);
+}
 
-  try {
-    let src = freezeFrame();
-    masterPerimeter = measurePerimeter(src);
-    statusText.textContent =
-      `✅ MASTER stored: ${masterPerimeter.toFixed(2)} mm`;
-    productBtn.disabled = false;
-    src.delete();
-  } catch {
-    statusText.textContent = "❌ MASTER detection failed";
-  }
-};
-
-productBtn.onclick = () => {
-  try {
-    let src = freezeFrame();
-    let product = measurePerimeter(src);
-    let match = Math.max(
-      0,
-      100 - Math.abs(product - masterPerimeter) / masterPerimeter * 100
-    );
-    let verdict = match >= PASS_THRESHOLD ? "PASS ✅" : "FAIL ❌";
-    statusText.textContent =
-      `${verdict} — ${match.toFixed(2)}% match`;
-    src.delete();
-  } catch {
-    statusText.textContent = "❌ PRODUCT detection failed";
-  }
-};
