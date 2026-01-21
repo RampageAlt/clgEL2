@@ -28,7 +28,7 @@ cv.onRuntimeInitialized = () => {
 };
 
 // -----------------------------
-// UI EVENTS (WhisperFrames pattern)
+// UI EVENTS
 // -----------------------------
 masterBtn.onclick = () => masterInput.click();
 productBtn.onclick = () => productInput.click();
@@ -49,32 +49,38 @@ function handleImage(e, isMaster) {
     preview.classList.remove("hidden");
 
     const src = cv.imread(preview);
+
     try {
-      const perimeter = measurePerimeter(src);
+      const periMM = measurePerimeter(src);
 
       if (isMaster) {
-        masterPerimeter = perimeter;
+        masterPerimeter = periMM;
         productBtn.disabled = false;
         statusText.textContent =
-          ✅ MASTER stored: ${perimeter.toFixed(2)} mm;
+          `✅ MASTER stored: ${periMM.toFixed(2)} mm`;
       } else {
-        const match = computeMatch(perimeter, masterPerimeter);
-        const verdict =
-          match >= PASS_THRESHOLD ? "PASS ✅" : "FAIL ❌";
+        const match = computeMatch(periMM, masterPerimeter);
+        const verdict = match >= PASS_THRESHOLD ? "PASS ✅" : "FAIL ❌";
         statusText.textContent =
-          ${verdict} — ${match.toFixed(2)}% match;
+          `${verdict} — ${match.toFixed(2)}% match`;
       }
-    } catch {
+
+    } catch (err) {
+      console.error(err);
       statusText.textContent = "❌ Detection failed. Retake photo.";
     }
+
     src.delete();
+
+    // ✅ Reset input so buttons work again
+    e.target.value = "";
   };
 
   img.src = URL.createObjectURL(file);
 }
 
 // -----------------------------
-// CORE LOGIC (FROM PYTHON)
+// CORE LOGIC
 // -----------------------------
 function circularity(c) {
   const area = cv.contourArea(c);
@@ -87,22 +93,14 @@ function measurePerimeter(src) {
   let binary = new cv.Mat();
 
   cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-  cv.threshold(
-    gray, binary, 0, 255,
-    cv.THRESH_BINARY_INV + cv.THRESH_OTSU
-  );
+  cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
 
-  let kernel = cv.getStructuringElement(
-    cv.MORPH_RECT, new cv.Size(5, 5)
-  );
+  let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
   cv.morphologyEx(binary, binary, cv.MORPH_CLOSE, kernel);
 
   let contours = new cv.MatVector();
   let hierarchy = new cv.Mat();
-  cv.findContours(
-    binary, contours, hierarchy,
-    cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
-  );
+  cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE);
 
   let valid = [];
   for (let i = 0; i < contours.size(); i++) {
@@ -113,15 +111,10 @@ function measurePerimeter(src) {
   if (valid.length < 2) throw "Not enough contours";
 
   let coin = valid
-    .map(c => ({
-      c,
-      score: Math.abs(circularity(c) - 1),
-      area: cv.contourArea(c)
-    }))
+    .map(c => ({ c, score: Math.abs(circularity(c) - 1), area: cv.contourArea(c) }))
     .sort((a, b) => a.score - b.score || b.area - a.area)[0].c;
 
-  let circle = cv.minEnclosingCircle(coin);
-  let pxPerMM = (2 * circle.radius) / COIN_DIAMETER_MM;
+  let pxPerMM = (2 * cv.minEnclosingCircle(coin).radius) / COIN_DIAMETER_MM;
 
   let object = valid
     .filter(c => c !== coin)
@@ -130,7 +123,11 @@ function measurePerimeter(src) {
   let periPx = cv.arcLength(object, true);
   let periMM = periPx / pxPerMM;
 
-  gray.delete(); binary.delete(); contours.delete(); hierarchy.delete();
+  gray.delete();
+  binary.delete();
+  contours.delete();
+  hierarchy.delete();
+
   return periMM;
 }
 
