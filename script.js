@@ -28,7 +28,7 @@ cv.onRuntimeInitialized = () => {
 };
 
 // -----------------------------
-// UI EVENTS (WhisperFrames pattern)
+// UI EVENTS (UNCHANGED)
 // -----------------------------
 masterBtn.onclick = () => masterInput.click();
 productBtn.onclick = () => productInput.click();
@@ -49,24 +49,29 @@ function handleImage(e, isMaster) {
     preview.classList.remove("hidden");
 
     const src = cv.imread(preview);
-    try {
-      const perimeter = measurePerimeter(src);
 
+    try {
       if (isMaster) {
-        masterPerimeter = perimeter;
+        const result = measureAndAnnotate(src);
+        masterPerimeter = result.perimeter;
+        preview.src = result.annotatedImage;
         productBtn.disabled = false;
+
         statusText.textContent =
-          `✅ MASTER stored: ${perimeter.toFixed(2)} mm`;
+          `✅ MASTER stored: ${masterPerimeter.toFixed(2)} mm`;
       } else {
+        const perimeter = measurePerimeter(src);
         const match = computeMatch(perimeter, masterPerimeter);
         const verdict =
           match >= PASS_THRESHOLD ? "PASS ✅" : "FAIL ❌";
+
         statusText.textContent =
           `${verdict} — ${match.toFixed(2)}% match`;
       }
     } catch {
       statusText.textContent = "❌ Detection failed. Retake photo.";
     }
+
     src.delete();
   };
 
@@ -74,7 +79,7 @@ function handleImage(e, isMaster) {
 }
 
 // -----------------------------
-// CORE LOGIC (FROM PYTHON)
+// CORE LOGIC (UNCHANGED MEASUREMENT)
 // -----------------------------
 function circularity(c) {
   const area = cv.contourArea(c);
@@ -83,6 +88,13 @@ function circularity(c) {
 }
 
 function measurePerimeter(src) {
+  return measureAndAnnotate(src, false).perimeter;
+}
+
+// -----------------------------
+// MEASURE + DRAW (MASTER ONLY)
+// -----------------------------
+function measureAndAnnotate(src) {
   let gray = new cv.Mat();
   let binary = new cv.Mat();
 
@@ -112,6 +124,7 @@ function measurePerimeter(src) {
 
   if (valid.length < 2) throw "Not enough contours";
 
+  // ---- Coin detection (UNCHANGED) ----
   let coin = valid
     .map(c => ({
       c,
@@ -123,6 +136,7 @@ function measurePerimeter(src) {
   let circle = cv.minEnclosingCircle(coin);
   let pxPerMM = (2 * circle.radius) / COIN_DIAMETER_MM;
 
+  // ---- Object ----
   let object = valid
     .filter(c => c !== coin)
     .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))[0];
@@ -130,12 +144,64 @@ function measurePerimeter(src) {
   let periPx = cv.arcLength(object, true);
   let periMM = periPx / pxPerMM;
 
-  gray.delete(); binary.delete(); contours.delete(); hierarchy.delete();
-  return periMM;
+  // =============================
+  // VISUAL OVERLAY (SAFE)
+  // =============================
+  let annotated = src.clone();
+
+  // draw object contour (GREEN)
+  let green = new cv.Scalar(0, 255, 0, 255);
+  cv.drawContours(
+    annotated,
+    new cv.MatVector(object),
+    -1,
+    green,
+    3
+  );
+
+  // draw coin circle (BLUE)
+  let blue = new cv.Scalar(0, 150, 255, 255);
+  cv.circle(
+    annotated,
+    new cv.Point(circle.center.x, circle.center.y),
+    Math.round(circle.radius),
+    blue,
+    3
+  );
+
+  // draw text
+  cv.putText(
+    annotated,
+    `Perimeter: ${periMM.toFixed(2)} mm`,
+    new cv.Point(20, 40),
+    cv.FONT_HERSHEY_SIMPLEX,
+    1,
+    new cv.Scalar(255, 255, 255, 255),
+    2
+  );
+
+  // render back to image
+  cv.imshow(preview, annotated);
+
+  // cleanup
+  gray.delete();
+  binary.delete();
+  contours.delete();
+  hierarchy.delete();
+
+  return {
+    perimeter: periMM,
+    annotatedImage: preview.src
+  };
 }
 
+// -----------------------------
+// MATCH
+// -----------------------------
 function computeMatch(product, master) {
   const diff = Math.abs(product - master);
   return Math.max(0, 100 - (diff / master) * 100);
 }
+
+
 
