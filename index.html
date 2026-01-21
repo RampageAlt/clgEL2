@@ -2,37 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Dimensional Inspection</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
-  <link rel="stylesheet" href="style.css">
+  <title>Dimensional Inspection</title>
 
   <!-- OpenCV -->
-  <script async src="https://docs.opencv.org/4.8.0/opencv.js"
-          onload="onOpenCvReady();"></script>
+  <script src="https://docs.opencv.org/4.x/opencv.js"></script>
+
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="app">
-  <h1>Visual Dimensional Inspection</h1>
+<h2>📐 Dimensional Inspection</h2>
+<p class="hint">Place coin + object clearly in frame</p>
 
-  <div id="status">Loading OpenCV…</div>
+<img id="preview" class="hidden"/>
 
-  <video id="video" autoplay playsinline></video>
-  <canvas id="canvas"></canvas>
+<div class="buttons">
+  <input type="file" accept="image/*" capture="environment"
+         id="masterInput" class="hidden">
+  <input type="file" accept="image/*" capture="environment"
+         id="productInput" class="hidden">
 
-  <div class="controls">
-    <button id="captureMaster" disabled>Capture Master</button>
-    <button id="captureProduct" disabled>Capture Product</button>
-  </div>
-
-  <div class="slider">
-    <label>Tolerance: <span id="tolVal">5</span>%</label>
-    <input type="range" min="0" max="10" value="5" id="tolerance">
-  </div>
-
-  <div id="result"></div>
+  <button id="masterBtn">📸 Capture MASTER</button>
+  <button id="productBtn" disabled>📸 Capture PRODUCT</button>
 </div>
+
+<p id="status">Loading OpenCV…</p>
 
 <script src="script.js"></script>
 </body>
