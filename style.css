@@ -1,10 +1,10 @@
 body {
   font-family: system-ui, sans-serif;
-  background: #0f0f0f;
-  color: #eaeaea;
+  background: #111;
+  color: #eee;
   text-align: center;
+  padding: 15px;
   margin: 0;
-  padding: 12px;
 }
 
 h2 {
@@ -16,15 +16,14 @@ h2 {
   opacity: 0.8;
 }
 
-video, canvas {
+img {
   width: 100%;
   max-width: 480px;
-  border-radius: 12px;
   margin-top: 10px;
-  background: black;
+  border-radius: 12px;
 }
 
-canvas {
+.hidden {
   display: none;
 }
 
@@ -56,6 +55,6 @@ button:disabled {
 }
 
 #status {
-  margin-top: 12px;
+  margin-top: 10px;
   font-weight: bold;
 }
