@@ -81,6 +81,29 @@ function circularity(c) {
   const peri = cv.arcLength(c, true);
   return peri === 0 ? 0 : 4 * Math.PI * area / (peri * peri);
 }
+function drawDebug(src, coinContour, objectContour, coinCircle) {
+  // Draw object contour (green)
+  let contoursVec = new cv.MatVector();
+  contoursVec.push_back(objectContour);
+  cv.drawContours(
+    src,
+    contoursVec,
+    -1,
+    new cv.Scalar(0, 255, 0, 255),
+    3
+  );
+
+  // Draw coin circle (red)
+  cv.circle(
+    src,
+    new cv.Point(coinCircle.center.x, coinCircle.center.y),
+    Math.round(coinCircle.radius),
+    new cv.Scalar(255, 0, 0, 255),
+    3
+  );
+
+  contoursVec.delete();
+}
 
 function measurePerimeter(src) {
   let gray = new cv.Mat();
@@ -138,3 +161,4 @@ function computeMatch(product, master) {
   const diff = Math.abs(product - master);
   return Math.max(0, 100 - (diff / master) * 100);
 }
+
