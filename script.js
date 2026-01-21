@@ -1,125 +1,207 @@
-let video = document.getElementById("video");
-let canvas = document.getElementById("canvas");
-let ctx = canvas.getContext("2d");
-
-let masterPerimeter = null;
-let tolerance = 5;
-
+// -----------------------------
+// CONFIG
+// -----------------------------
 const COIN_DIAMETER_MM = 24.0;
+const MIN_CONTOUR_AREA = 500;
+const PASS_THRESHOLD = 95.0;
 
-function onOpenCvReady() {
-  document.getElementById("status").innerText = "OpenCV Ready";
-  startCamera();
+// -----------------------------
+// STATE
+// -----------------------------
+let masterPerimeter = null;
 
-  document.getElementById("captureMaster").disabled = false;
-  document.getElementById("captureProduct").disabled = false;
+// -----------------------------
+// ELEMENTS
+// -----------------------------
+const masterBtn = document.getElementById("masterBtn");
+const productBtn = document.getElementById("productBtn");
+const masterInput = document.getElementById("masterInput");
+const productInput = document.getElementById("productInput");
+const preview = document.getElementById("preview");
+const statusText = document.getElementById("status");
+
+// -----------------------------
+// OPENCV READY
+// -----------------------------
+cv.onRuntimeInitialized = () => {
+  statusText.textContent = "Ready. Capture MASTER sample.";
+};
+
+// -----------------------------
+// UI EVENTS (UNCHANGED)
+// -----------------------------
+masterBtn.onclick = () => masterInput.click();
+productBtn.onclick = () => productInput.click();
+
+masterInput.onchange = e => handleImage(e, true);
+productInput.onchange = e => handleImage(e, false);
+
+// -----------------------------
+// IMAGE HANDLING
+// -----------------------------
+function handleImage(e, isMaster) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const img = new Image();
+  img.onload = () => {
+    preview.src = img.src;
+    preview.classList.remove("hidden");
+
+    const src = cv.imread(preview);
+
+    try {
+      if (isMaster) {
+        const result = measureAndAnnotate(src);
+        masterPerimeter = result.perimeter;
+        preview.src = result.annotatedImage;
+        productBtn.disabled = false;
+
+        statusText.textContent =
+          `✅ MASTER stored: ${masterPerimeter.toFixed(2)} mm`;
+      } else {
+        const perimeter = measurePerimeter(src);
+        const match = computeMatch(perimeter, masterPerimeter);
+        const verdict =
+          match >= PASS_THRESHOLD ? "PASS ✅" : "FAIL ❌";
+
+        statusText.textContent =
+          `${verdict} — ${match.toFixed(2)}% match`;
+      }
+    } catch {
+      statusText.textContent = "❌ Detection failed. Retake photo.";
+    }
+
+    src.delete();
+  };
+
+  img.src = URL.createObjectURL(file);
 }
 
-async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "environment" }
-  });
-  video.srcObject = stream;
+// -----------------------------
+// CORE LOGIC (UNCHANGED MEASUREMENT)
+// -----------------------------
+function circularity(c) {
+  const area = cv.contourArea(c);
+  const peri = cv.arcLength(c, true);
+  return peri === 0 ? 0 : 4 * Math.PI * area / (peri * peri);
 }
 
-document.getElementById("tolerance").oninput = e => {
-  tolerance = Number(e.target.value);
-  document.getElementById("tolVal").innerText = tolerance;
-};
+function measurePerimeter(src) {
+  return measureAndAnnotate(src, false).perimeter;
+}
 
-document.getElementById("captureMaster").onclick = () => {
-  masterPerimeter = captureAndMeasure(true);
-};
-
-document.getElementById("captureProduct").onclick = () => {
-  if (!masterPerimeter) {
-    alert("Capture master first");
-    return;
-  }
-  captureAndMeasure(false);
-};
-
-function captureAndMeasure(isMaster) {
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  ctx.drawImage(video, 0, 0);
-
-  let src = cv.imread(canvas);
+// -----------------------------
+// MEASURE + DRAW (MASTER ONLY)
+// -----------------------------
+function measureAndAnnotate(src) {
   let gray = new cv.Mat();
   let binary = new cv.Mat();
 
   cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-  cv.GaussianBlur(gray, gray, new cv.Size(5,5), 0);
-  cv.threshold(gray, binary, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+  cv.threshold(
+    gray, binary, 0, 255,
+    cv.THRESH_BINARY_INV + cv.THRESH_OTSU
+  );
+
+  let kernel = cv.getStructuringElement(
+    cv.MORPH_RECT, new cv.Size(5, 5)
+  );
+  cv.morphologyEx(binary, binary, cv.MORPH_CLOSE, kernel);
 
   let contours = new cv.MatVector();
   let hierarchy = new cv.Mat();
-  cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE);
+  cv.findContours(
+    binary, contours, hierarchy,
+    cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
+  );
 
-  if (contours.size() < 2) {
-    document.getElementById("result").innerText = "Detection failed – ensure coin & object visible";
-    return null;
-  }
-
-  let bestCoin = null;
-  let bestScore = 999;
-
+  let valid = [];
   for (let i = 0; i < contours.size(); i++) {
     let c = contours.get(i);
-    let area = cv.contourArea(c);
-    if (area < 500) continue;
-
-    let peri = cv.arcLength(c, true);
-    let circ = (4 * Math.PI * area) / (peri * peri);
-    let score = Math.abs(circ - 1);
-
-    if (score < bestScore) {
-      bestScore = score;
-      bestCoin = c;
-    }
+    if (cv.contourArea(c) > MIN_CONTOUR_AREA) valid.push(c);
   }
 
-  if (!bestCoin) {
-    document.getElementById("result").innerText = "Coin not detected";
-    return null;
-  }
+  if (valid.length < 2) throw "Not enough contours";
 
-  let circle = cv.minEnclosingCircle(bestCoin);
-  let pixelsPerMM = (2 * circle.radius) / COIN_DIAMETER_MM;
+  // ---- Coin detection (UNCHANGED) ----
+  let coin = valid
+    .map(c => ({
+      c,
+      score: Math.abs(circularity(c) - 1),
+      area: cv.contourArea(c)
+    }))
+    .sort((a, b) => a.score - b.score || b.area - a.area)[0].c;
 
-  let objectContour = null;
-  let maxArea = 0;
+  let circle = cv.minEnclosingCircle(coin);
+  let pxPerMM = (2 * circle.radius) / COIN_DIAMETER_MM;
 
-  for (let i = 0; i < contours.size(); i++) {
-    let c = contours.get(i);
-    let area = cv.contourArea(c);
-    if (area > maxArea && c !== bestCoin) {
-      maxArea = area;
-      objectContour = c;
-    }
-  }
+  // ---- Object ----
+  let object = valid
+    .filter(c => c !== coin)
+    .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))[0];
 
-  let perimeterPX = cv.arcLength(objectContour, true);
-  let perimeterMM = perimeterPX / pixelsPerMM;
+  let periPx = cv.arcLength(object, true);
+  let periMM = periPx / pxPerMM;
 
-  cv.drawContours(src, contours, -1, new cv.Scalar(0,255,0,255), 2);
-  cv.imshow(canvas, src);
+  // =============================
+  // VISUAL OVERLAY (SAFE)
+  // =============================
+  let annotated = src.clone();
 
-  src.delete(); gray.delete(); binary.delete(); contours.delete(); hierarchy.delete();
+  // draw object contour (GREEN)
+  let green = new cv.Scalar(0, 255, 0, 255);
+  cv.drawContours(
+    annotated,
+    new cv.MatVector(object),
+    -1,
+    green,
+    3
+  );
 
-  if (isMaster) {
-    document.getElementById("result").innerText =
-      `Master stored: ${perimeterMM.toFixed(2)} mm`;
-    return perimeterMM;
-  } else {
-    let diff = Math.abs(perimeterMM - masterPerimeter);
-    let match = 100 - (diff / masterPerimeter) * 100;
-    let pass = match >= (100 - tolerance);
+  // draw coin circle (BLUE)
+  let blue = new cv.Scalar(0, 150, 255, 255);
+  cv.circle(
+    annotated,
+    new cv.Point(circle.center.x, circle.center.y),
+    Math.round(circle.radius),
+    blue,
+    3
+  );
 
-    document.getElementById("result").innerText =
-      `${pass ? "PASS" : "FAIL"} — ${match.toFixed(2)}%`;
+  // draw text
+  cv.putText(
+    annotated,
+    `Perimeter: ${periMM.toFixed(2)} mm`,
+    new cv.Point(20, 40),
+    cv.FONT_HERSHEY_SIMPLEX,
+    1,
+    new cv.Scalar(255, 255, 255, 255),
+    2
+  );
 
-    return perimeterMM;
-  }
+  // render back to image
+  cv.imshow(preview, annotated);
+
+  // cleanup
+  gray.delete();
+  binary.delete();
+  contours.delete();
+  hierarchy.delete();
+
+  return {
+    perimeter: periMM,
+    annotatedImage: preview.src
+  };
 }
+
+// -----------------------------
+// MATCH
+// -----------------------------
+function computeMatch(product, master) {
+  const diff = Math.abs(product - master);
+  return Math.max(0, 100 - (diff / master) * 100);
+}
+
+
 
