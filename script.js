@@ -2,8 +2,9 @@
 // CONFIG
 // -----------------------------
 const COIN_DIAMETER_MM = 24.0;
-const MIN_CONTOUR_AREA = 500;
-const PASS_THRESHOLD = 95.0;
+
+// dynamic minimum area factor
+const MIN_AREA_RATIO = 0.001; // 0.1% of image area
 
 // -----------------------------
 // STATE
@@ -20,15 +21,18 @@ const productInput = document.getElementById("productInput");
 const preview = document.getElementById("preview");
 const statusText = document.getElementById("status");
 
-// -----------------------------
-// OPENCV READY
-// -----------------------------
-cv.onRuntimeInitialized = () => {
-  statusText.textContent = "Ready. Capture MASTER sample.";
-};
+const tolSlider = document.getElementById("tolerance");
+const tolValue = document.getElementById("tolValue");
 
 // -----------------------------
-// UI EVENTS (UNCHANGED)
+// UI
+// -----------------------------
+tolValue.textContent = tolSlider.value;
+tolSlider.oninput = () => tolValue.textContent = tolSlider.value;
+
+// -----------------------------
+cv.onRuntimeInitialized = () => {};
+
 // -----------------------------
 masterBtn.onclick = () => masterInput.click();
 productBtn.onclick = () => productInput.click();
@@ -54,22 +58,21 @@ function handleImage(e, isMaster) {
       if (isMaster) {
         const result = measureAndAnnotate(src);
         masterPerimeter = result.perimeter;
-        preview.src = result.annotatedImage;
         productBtn.disabled = false;
-
         statusText.textContent =
-          `✅ MASTER stored: ${masterPerimeter.toFixed(2)} mm`;
+          `MASTER stored: ${masterPerimeter.toFixed(2)} mm`;
       } else {
         const perimeter = measurePerimeter(src);
         const match = computeMatch(perimeter, masterPerimeter);
-        const verdict =
-          match >= PASS_THRESHOLD ? "PASS ✅" : "FAIL ❌";
-
+        const tolerance = parseFloat(tolSlider.value);
+        const verdict = match >= (100 - tolerance) ? "PASS" : "FAIL";
         statusText.textContent =
           `${verdict} — ${match.toFixed(2)}% match`;
       }
-    } catch {
-      statusText.textContent = "❌ Detection failed. Retake photo.";
+    } catch (err) {
+      console.error(err);
+      statusText.textContent =
+        "Detection failed. Ensure coin + part are visible.";
     }
 
     src.delete();
@@ -79,7 +82,7 @@ function handleImage(e, isMaster) {
 }
 
 // -----------------------------
-// CORE LOGIC (UNCHANGED MEASUREMENT)
+// CORE MEASUREMENT
 // -----------------------------
 function circularity(c) {
   const area = cv.contourArea(c);
@@ -88,43 +91,65 @@ function circularity(c) {
 }
 
 function measurePerimeter(src) {
-  return measureAndAnnotate(src, false).perimeter;
+  return measureAndAnnotate(src).perimeter;
 }
 
-// -----------------------------
-// MEASURE + DRAW (MASTER ONLY)
-// -----------------------------
 function measureAndAnnotate(src) {
+
   let gray = new cv.Mat();
+  let blurred = new cv.Mat();
   let binary = new cv.Mat();
 
+  // 1️⃣ grayscale
   cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-  cv.threshold(
-    gray, binary, 0, 255,
-    cv.THRESH_BINARY_INV + cv.THRESH_OTSU
+
+  // 2️⃣ blur (CRITICAL)
+  cv.GaussianBlur(gray, blurred, new cv.Size(7, 7), 0);
+
+  // 3️⃣ adaptive threshold (phone-safe)
+  cv.adaptiveThreshold(
+    blurred,
+    binary,
+    255,
+    cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+    cv.THRESH_BINARY_INV,
+    31,
+    5
   );
 
+  // 4️⃣ morphology
   let kernel = cv.getStructuringElement(
-    cv.MORPH_RECT, new cv.Size(5, 5)
+    cv.MORPH_ELLIPSE,
+    new cv.Size(5, 5)
   );
+
+  cv.morphologyEx(binary, binary, cv.MORPH_OPEN, kernel);
   cv.morphologyEx(binary, binary, cv.MORPH_CLOSE, kernel);
 
+  // 5️⃣ contours
   let contours = new cv.MatVector();
   let hierarchy = new cv.Mat();
   cv.findContours(
-    binary, contours, hierarchy,
-    cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE
+    binary,
+    contours,
+    hierarchy,
+    cv.RETR_EXTERNAL,
+    cv.CHAIN_APPROX_NONE
   );
+
+  const imgArea = src.rows * src.cols;
+  const minArea = imgArea * MIN_AREA_RATIO;
 
   let valid = [];
   for (let i = 0; i < contours.size(); i++) {
     let c = contours.get(i);
-    if (cv.contourArea(c) > MIN_CONTOUR_AREA) valid.push(c);
+    if (cv.contourArea(c) > minArea) valid.push(c);
   }
 
-  if (valid.length < 2) throw "Not enough contours";
+  if (valid.length < 2)
+    throw "Contours missing";
 
-  // ---- Coin detection (UNCHANGED) ----
+  // 6️⃣ coin detection
   let coin = valid
     .map(c => ({
       c,
@@ -136,7 +161,7 @@ function measureAndAnnotate(src) {
   let circle = cv.minEnclosingCircle(coin);
   let pxPerMM = (2 * circle.radius) / COIN_DIAMETER_MM;
 
-  // ---- Object ----
+  // 7️⃣ object
   let object = valid
     .filter(c => c !== coin)
     .sort((a, b) => cv.contourArea(b) - cv.contourArea(a))[0];
@@ -144,32 +169,25 @@ function measureAndAnnotate(src) {
   let periPx = cv.arcLength(object, true);
   let periMM = periPx / pxPerMM;
 
-  // =============================
-  // VISUAL OVERLAY (SAFE)
-  // =============================
+  // 8️⃣ annotate
   let annotated = src.clone();
 
-  // draw object contour (GREEN)
-  let green = new cv.Scalar(0, 255, 0, 255);
   cv.drawContours(
     annotated,
     new cv.MatVector(object),
     -1,
-    green,
+    new cv.Scalar(0, 255, 0, 255),
     3
   );
 
-  // draw coin circle (BLUE)
-  let blue = new cv.Scalar(0, 150, 255, 255);
   cv.circle(
     annotated,
     new cv.Point(circle.center.x, circle.center.y),
     Math.round(circle.radius),
-    blue,
+    new cv.Scalar(0, 150, 255, 255),
     3
   );
 
-  // draw text
   cv.putText(
     annotated,
     `Perimeter: ${periMM.toFixed(2)} mm`,
@@ -180,28 +198,20 @@ function measureAndAnnotate(src) {
     2
   );
 
-  // render back to image
   cv.imshow(preview, annotated);
 
-  // cleanup
   gray.delete();
+  blurred.delete();
   binary.delete();
   contours.delete();
   hierarchy.delete();
 
-  return {
-    perimeter: periMM,
-    annotatedImage: preview.src
-  };
+  return { perimeter: periMM };
 }
 
-// -----------------------------
-// MATCH
 // -----------------------------
 function computeMatch(product, master) {
   const diff = Math.abs(product - master);
   return Math.max(0, 100 - (diff / master) * 100);
 }
-
-
 
