@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dimensional Inspection</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- OpenCV.js -->
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2>📐 Dimensional Inspection (Coin Referenced)</h2>
+
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas"></canvas>
+
+<div class="buttons">
+  <button id="captureMaster">Capture MASTER</button>
+  <button id="captureProduct" disabled>Capture PRODUCT</button>
+</div>
+
+<p id="status">Loading OpenCV…</p>
+
+<script src="script.js"></script>
+</body>
+</html>

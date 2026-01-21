@@ -1,0 +1,43 @@
+body {
+  font-family: system-ui, sans-serif;
+  text-align: center;
+  background: #111;
+  color: #eee;
+  margin: 0;
+  padding: 10px;
+}
+
+video, canvas {
+  width: 100%;
+  max-width: 480px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.buttons {
+  margin-top: 15px;
+}
+
+button {
+  padding: 12px 18px;
+  margin: 5px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+#captureMaster {
+  background: #1976d2;
+  color: white;
+}
+
+#captureProduct {
+  background: #2e7d32;
+  color: white;
+}
+
+p {
+  margin-top: 10px;
+  font-weight: bold;
+}
