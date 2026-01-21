@@ -1,79 +1,60 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-
-* {
-  box-sizing: border-box;
-  font-family: 'Inter', sans-serif;
-}
-
 body {
-  margin: 0;
-  background: #0f172a;
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-}
-
-.app {
-  background: #020617;
-  padding: 20px;
-  border-radius: 14px;
-  width: 360px;
-  box-shadow: 0 0 40px rgba(0,0,0,0.6);
+  font-family: system-ui, sans-serif;
+  background: #111;
+  color: #eee;
   text-align: center;
+  padding: 15px;
+  margin: 0;
 }
 
-h1 {
-  font-size: 18px;
-  margin-bottom: 10px;
+h2 {
+  margin-bottom: 4px;
 }
 
-#status {
-  font-size: 13px;
-  margin-bottom: 10px;
-  color: #38bdf8;
+.hint {
+  font-size: 14px;
+  opacity: 0.8;
 }
 
-video, canvas {
+img {
   width: 100%;
-  border-radius: 10px;
-  margin-bottom: 10px;
+  max-width: 480px;
+  margin-top: 10px;
+  border-radius: 12px;
 }
 
-.controls {
-  display: flex;
-  gap: 10px;
+.hidden {
+  display: none;
+}
+
+.buttons {
+  margin-top: 15px;
 }
 
 button {
-  flex: 1;
-  padding: 10px;
+  padding: 14px 20px;
+  font-size: 16px;
+  margin: 6px;
   border-radius: 10px;
   border: none;
-  background: #2563eb;
-  color: white;
-  font-weight: 600;
   cursor: pointer;
 }
 
+#masterBtn {
+  background: #1e88e5;
+  color: white;
+}
+
+#productBtn {
+  background: #2e7d32;
+  color: white;
+}
+
 button:disabled {
-  background: #334155;
-  cursor: not-allowed;
+  background: #555;
 }
 
-.slider {
+#status {
   margin-top: 10px;
-  font-size: 13px;
+  font-weight: bold;
 }
-
-input[type="range"] {
-  width: 100%;
-}
-
-#result {
-  margin-top: 12px;
-  font-weight: 600;
-}
-
-
