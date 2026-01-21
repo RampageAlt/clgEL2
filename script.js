@@ -103,20 +103,27 @@ function handleImage(e, isMaster) {
 // DRAWING (VISUAL ONLY)
 // -----------------------------
 function drawOverlay(src, coinContour, objectContour, coinCircle, coinColor, objColor) {
-  // draw object contour
+  // clone the source to make contours visible
+  let overlay = src.clone();
+
+  // draw object contour (thicker and bright)
   let v = new cv.MatVector();
   v.push_back(objectContour);
-  cv.drawContours(src, v, -1, objColor, 3);
+  cv.drawContours(overlay, v, -1, objColor, 4);  // thicker line
   v.delete();
 
   // draw coin circle
-  cv.circle(
-    src,
+  cv.circle(overlay,
     new cv.Point(coinCircle.center.x, coinCircle.center.y),
     Math.round(coinCircle.radius),
     coinColor,
-    3
+    4  // thicker line
   );
+
+  // blend overlay on top of original image (50% opacity)
+  cv.addWeighted(overlay, 0.7, src, 0.3, 0, src);
+  overlay.delete();
+};
 }
 
 // -----------------------------
@@ -193,3 +200,4 @@ function computeMatch(product, master) {
   const diff = Math.abs(product - master);
   return Math.max(0, 100 - (diff / master) * 100);
 }
+
