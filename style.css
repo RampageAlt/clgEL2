@@ -1,88 +1,79 @@
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
   font-family: 'Inter', sans-serif;
 }
 
-.card {
-  background: #111;
-  color: #eaeaea;
+body {
+  margin: 0;
+  background: #0f172a;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.app {
+  background: #020617;
   padding: 20px;
-  border-radius: 16px;
-  width: 90%;
-  max-width: 420px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  border-radius: 14px;
+  width: 360px;
+  box-shadow: 0 0 40px rgba(0,0,0,0.6);
   text-align: center;
 }
 
-h2 {
-  margin: 0;
-  font-weight: 600;
+h1 {
+  font-size: 18px;
+  margin-bottom: 10px;
 }
 
-.subtitle {
+#status {
   font-size: 13px;
-  opacity: 0.7;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+  color: #38bdf8;
 }
 
-img {
+video, canvas {
   width: 100%;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #334155;
+  cursor: not-allowed;
+}
+
+.slider {
   margin-top: 10px;
-  border-radius: 12px;
-}
-
-.hidden {
-  display: none;
-}
-
-.slider-group {
-  margin: 15px 0;
-  text-align: left;
-}
-
-.slider-group label {
   font-size: 13px;
-  display: block;
-  margin-bottom: 6px;
 }
 
 input[type="range"] {
   width: 100%;
 }
 
-.buttons {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-button {
-  flex: 1;
-  padding: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
-  background: #1e88e5;
-  color: white;
-}
-
-#productBtn {
-  background: #2e7d32;
-}
-
-button:disabled {
-  background: #555;
-  cursor: not-allowed;
-}
-
-.status {
+#result {
   margin-top: 12px;
-  font-size: 14px;
+  font-weight: 600;
 }
+
+
