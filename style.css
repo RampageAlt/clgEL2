@@ -1,17 +1,31 @@
 body {
   font-family: system-ui, sans-serif;
+  background: #0f0f0f;
+  color: #eaeaea;
   text-align: center;
-  background: #111;
-  color: #eee;
   margin: 0;
-  padding: 10px;
+  padding: 12px;
+}
+
+h2 {
+  margin-bottom: 4px;
+}
+
+.hint {
+  font-size: 14px;
+  opacity: 0.8;
 }
 
 video, canvas {
   width: 100%;
   max-width: 480px;
-  border-radius: 10px;
+  border-radius: 12px;
   margin-top: 10px;
+  background: black;
+}
+
+canvas {
+  display: none;
 }
 
 .buttons {
@@ -19,25 +33,29 @@ video, canvas {
 }
 
 button {
-  padding: 12px 18px;
-  margin: 5px;
+  padding: 14px 20px;
   font-size: 16px;
-  border-radius: 8px;
+  margin: 6px;
+  border-radius: 10px;
   border: none;
   cursor: pointer;
 }
 
-#captureMaster {
-  background: #1976d2;
+#masterBtn {
+  background: #1e88e5;
   color: white;
 }
 
-#captureProduct {
+#productBtn {
   background: #2e7d32;
   color: white;
 }
 
-p {
-  margin-top: 10px;
+button:disabled {
+  background: #555;
+}
+
+#status {
+  margin-top: 12px;
   font-weight: bold;
 }
