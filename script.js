@@ -163,4 +163,3 @@ function computeMatch(product, master) {
   return Math.max(0, 100 - (diff / master) * 100);
 }
 
-
