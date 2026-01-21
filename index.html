@@ -8,31 +8,39 @@
   <!-- OpenCV -->
   <script src="https://docs.opencv.org/4.x/opencv.js"></script>
 
+  <!-- Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h2>📐 Dimensional Inspection</h2>
-<p class="hint">Place coin + object clearly in frame</p>
+<div class="card">
+  <h2>Dimensional Inspection</h2>
+  <p class="subtitle">Coin-referenced perimeter measurement</p>
 
-<img id="preview" class="hidden"/>
+  <img id="preview" class="hidden"/>
 
-<div class="buttons">
-  <input type="file" accept="image/*" capture="environment"
-         id="masterInput" class="hidden">
-  <input type="file" accept="image/*" capture="environment"
-         id="productInput" class="hidden">
+  <div class="slider-group">
+    <label>
+      Tolerance: <span id="tolValue">5</span>%
+    </label>
+    <input type="range" id="tolerance" min="0" max="10" value="5">
+  </div>
 
-  <button id="masterBtn">📸 Capture MASTER</button>
-  <button id="productBtn" disabled>📸 Capture PRODUCT</button>
+  <div class="buttons">
+    <input type="file" accept="image/*" capture="environment"
+           id="masterInput" class="hidden">
+    <input type="file" accept="image/*" capture="environment"
+           id="productInput" class="hidden">
+
+    <button id="masterBtn">Capture MASTER</button>
+    <button id="productBtn" disabled>Capture PRODUCT</button>
+  </div>
+
+  <p id="status" class="status">Ready. Capture MASTER sample.</p>
 </div>
-
-<p id="status">Loading OpenCV…</p>
 
 <script src="script.js"></script>
 </body>
 </html>
-
-
-
-
